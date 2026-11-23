@@ -6,6 +6,8 @@ import com.example.perfumeShop.entity.Product;
 import com.example.perfumeShop.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class ProductService {
 
@@ -18,6 +20,10 @@ public class ProductService {
     public ProductResponse add(ProductRequest request){
         Product product = productRepository.save(mapToEntity(request));
         return mapToRecord(product);
+    }
+
+    public List<Product> getAll(){
+        return productRepository.findAll();
     }
 
     protected Product mapToEntity(ProductRequest request){
