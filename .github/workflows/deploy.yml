@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # 1. Checkout source code
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,7 +24,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # 3. Build and test Spring Boot application
+      # 3. Build Spring Boot application
       - name: Maven Build
         run: mvn -B clean package -DskipTests
 
@@ -34,7 +35,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 5. Build and push Docker image
+      # 5. Build and Push Docker Image
       - name: Build and Push Image
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/product-app"
@@ -46,33 +47,29 @@ jobs:
           docker push "$IMAGE:latest"
           docker push "$IMAGE:${GITHUB_SHA}"
 
-      # 6. Deploy to AWS EC2
+      # 6. Deploy to AWS EC2 using Docker Compose
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+
           script: |
-            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/product-app"
+            cd /home/ubuntu
 
-            # Verify environment file
-            test -f /home/ubuntu/.env
+            # Verify files
+            test -f docker-compose.yml
+            test -f .env
 
-            # Pull latest image
-            docker pull "$IMAGE:latest"
+            # Pull latest Product image
+            docker compose pull perfume-app
 
-            # Stop and remove old container
-            docker rm -f product-container || true
+            # Update only Product application
+            docker compose up -d --no-deps perfume-app
 
-            # Start new container
-            docker run -d \
-              --name product-container \
-              --restart unless-stopped \
-              -p 8080:8080 \
-              --env-file /home/ubuntu/.env \
-              -e SPRING_PROFILES_ACTIVE=pod \
-              "$IMAGE:latest"
-
-            # Check container status
+            # Verify containers
             docker ps
+
+            # Show Product application logs
+            docker logs --tail 50 product-container
