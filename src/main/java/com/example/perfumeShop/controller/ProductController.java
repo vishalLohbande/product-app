@@ -28,6 +28,7 @@ public class ProductController {
 
     @GetMapping
     public ResponseEntity<List<Product>> getAll() {
+        System.out.println("called the controller");
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(productService.getAll());
