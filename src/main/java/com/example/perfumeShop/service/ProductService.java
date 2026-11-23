@@ -14,17 +14,21 @@ import java.util.List;
 @Service
 public class ProductService {
 
-    private ProductRepository productRepository;
-    private KafkaTemplate kafkaTemplate;
+    private final ProductRepository productRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public ProductService(ProductRepository productRepository, KafkaTemplate kafkaTemplate) {
+    public ProductService(ProductRepository productRepository,
+                          KafkaTemplate kafkaTemplate) {
         this.productRepository = productRepository;
         this.kafkaTemplate = kafkaTemplate;
     }
 
     public ProductResponse add(ProductRequest request){
         Product product = productRepository.save(mapToEntity(request));
-        kafkaTemplate.send(AppConstant.PRODUCT_CREATED, mapToRecord(product));
+        kafkaTemplate.send(
+                AppConstant.PRODUCT_CREATED,
+                mapToRecord(product)
+        );
         return mapToRecord(product);
     }
 
