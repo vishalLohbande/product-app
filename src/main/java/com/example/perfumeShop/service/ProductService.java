@@ -25,9 +25,10 @@ public class ProductService {
 
     public ProductResponse add(ProductRequest request){
         Product product = productRepository.save(mapToEntity(request));
+        ProductResponse response = mapToRecord(product);
         kafkaTemplate.send(
                 AppConstant.PRODUCT_CREATED,
-                mapToRecord(product)
+                response
         );
         return mapToRecord(product);
     }
