@@ -1,0 +1,78 @@
+
+name: Spring Boot CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout source code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Setup Java 21
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # 3. Build and test Spring Boot application
+      - name: Maven Build
+        run: mvn -B clean verify
+
+      # 4. Login to Docker Hub
+      - name: Docker Hub Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 5. Build and push Docker image
+      - name: Build and Push Image
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/product-app"
+
+          docker build \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:${GITHUB_SHA}" .
+
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${GITHUB_SHA}"
+
+      # 6. Deploy to AWS EC2
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/product-app"
+
+            # Verify environment file
+            test -f /home/ubuntu/.env
+
+            # Pull latest image
+            docker pull "$IMAGE:latest"
+
+            # Stop and remove old container
+            docker rm -f product-container || true
+
+            # Start new container
+            docker run -d \
+              --name product-container \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              --env-file /home/ubuntu/.env \
+              -e SPRING_PROFILES_ACTIVE=pod \
+              "$IMAGE:latest"
+
+            # Check container status
+            docker ps
